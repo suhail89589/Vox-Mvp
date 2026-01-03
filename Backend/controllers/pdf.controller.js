@@ -1,134 +1,74 @@
-import fs from "fs";
-import Book from "../models/Pdf.js";
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
+import { v4 as uuidv4 } from "uuid";
+
+// In-memory session store
+export const sessions = new Map();
+
+// 🧹 Helper: Delete session after 1 hour to free up RAM
+const scheduleCleanup = (sessionId) => {
+  setTimeout(() => {
+    if (sessions.has(sessionId)) {
+      sessions.delete(sessionId);
+      console.log(`🧹 Auto-Cleanup: Removed session ${sessionId}`);
+    }
+  }, 1000 * 60 * 60); // 1 Hour
+};
 
 export const uploadPdf = async (req, res, next) => {
   try {
+    // 1. Validate File
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: "PDF file is required",
+        message: "No file uploaded.",
       });
     }
 
-    const filePath = req.file.path;
-    const data = new Uint8Array(fs.readFileSync(filePath));
-
-    const pdf = await pdfjsLib.getDocument({ data }).promise;
-
-    let extractedText = "";
-    // Inside uploadPdf loop
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-
-      // Inside the uploadBook loop
-      const pageText = content.items
-        .map((item) => item.str)
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .replace(/(Activity\s\d+\.\d+\s?){2,}/g, "$1") // Removes repeated activity titles
-        .trim();
-
-      // Add a custom delimiter so frontend knows exactly where to pause
-      extractedText += pageText + " [PAUSE] ";
-    }
-
-    if (!extractedText || extractedText.trim().length < 50) {
+    if (req.file.mimetype !== "application/pdf") {
       return res.status(400).json({
         success: false,
-        message: "Unable to extract meaningful text from PDF",
+        message: "Invalid file type. Only PDFs are allowed.",
       });
     }
 
-    const book = await Pdf.create({
-      title: req.body.title || req.file.originalname,
-      filePath,
-      extractedText,
-      user: req.user.id,
-    });
+    // 2. Extract Text
+    const data = await pdfParse(req.file.buffer);
 
-    res.status(201).json({
-      success: true,
-      message: "Pdf uploaded and processed successfully",
-      data: {
-        id: pdf._id,
-        title: Pdf.title,
-      },
-    });
-  } catch (error) {
-    console.error("UPLOAD PDF ERROR:", error);
-    next(error);
-  }
-};
-
-
-export const getMyPdfs = async (req, res, next) => {
-  try {
-    const books = await Pdf.find({ user: req.user.id }).select(
-      "_id title createdAt"
-    );
-
-    res.status(200).json({
-      success: true,
-      count: pdf.length,
-      data: pdfs,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-
-export const getPdfById = async (req, res, next) => {
-  try {
-    const pdf = await Pdf.findOne({
-      _id: req.params.id,
-      user: req.user.id,
-    });
-
-    if (!pdf) {
-      return res.status(404).json({
+    if (!data.text || data.text.trim().length === 0) {
+      return res.status(400).json({
         success: false,
-        message: "Pdf not found",
+        message: "Could not extract text. PDF might be an image scan.",
       });
     }
 
+    // 3. Create Session
+    const sessionId = uuidv4();
+
+    sessions.set(sessionId, {
+      id: sessionId,
+      filename: req.file.originalname,
+      text: data.text,
+      uploadedAt: new Date(),
+    });
+
+    // 🛡️ SECURITY FIX: Schedule cleanup
+    scheduleCleanup(sessionId);
+
+    console.log(`✅ PDF Processed: ${sessionId} (${data.text.length} chars)`);
+
+    // 4. Respond
     res.status(200).json({
       success: true,
-      data: pdf,
+      message: "PDF uploaded successfully",
+      sessionId: sessionId,
     });
   } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Delete book
- */
-export const deletePdf = async (req, res, next) => {
-  try {
-    const pdf = await Pdf.findOneAndDelete({
-      _id: req.params.id,
-      user: req.user.id,
+    console.error("PDF Processing Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process PDF.",
     });
-
-    if (!pdf) {
-      return res.status(404).json({
-        success: false,
-        message: "Pdf not found or not authorized",
-      });
-    }
-
-    if (pdf.filePath && fs.existsSync(pdf.filePath)) {
-      fs.unlinkSync(pdf.filePath);
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Pdf deleted successfully",
-    });
-  } catch (error) {
-    next(error);
   }
 };

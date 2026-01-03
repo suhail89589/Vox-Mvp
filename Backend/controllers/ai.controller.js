@@ -1,26 +1,39 @@
-import { generateAIResponse } from "../services/ai/ai.service.js";
+import { generateAIResponse } from "../services/ai.service.js";
+import { sessions } from "./pdf.controller.js"; // shared session store
 
 export const askFromPdf = async (req, res, next) => {
   try {
-    const { question, currentParagraph, language = "en" } = req.body;
+    const { question, sessionId, language = "en" } = req.body;
 
-    // 1. Input Validation
-    if (!question || typeof question !== "string") {
-      return res
-        .status(400)
-        .json({ success: false, message: "Valid question is required" });
+    // 1. Validate input
+    if (!question || typeof question !== "string" || question.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid question (max 500 characters).",
+      });
     }
 
-    if (question.length > 500) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Question too long (max 500 chars)" });
+    if (!sessionId) {
+      return res.status(400).json({
+        success: false,
+        message: "Session ID is required.",
+      });
     }
 
-    // 2. Delegate to Service
+    // 2. Validate session
+    const session = sessions.get(sessionId);
+
+    if (!session) {
+      return res.status(403).json({
+        success: false,
+        message: "Session expired. Please upload the PDF again.",
+      });
+    }
+
+    // 3. Generate answer
     const answer = await generateAIResponse({
       question,
-      context: currentParagraph, // Renamed for clarity
+      context: session.text.slice(0, 3000), // hard safety limit
       language,
     });
 
@@ -29,7 +42,6 @@ export const askFromPdf = async (req, res, next) => {
       data: { answer },
     });
   } catch (error) {
-    // Pass to global error handler (don't console.error here to avoid log duplication)
     next(error);
   }
 };

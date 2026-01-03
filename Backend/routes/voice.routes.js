@@ -1,19 +1,15 @@
 import express from "express";
-import multer from "multer";
 import { textToSpeech, speechToText } from "../controllers/voice.controller.js";
-import { protect } from "../middleware/auth.middleware.js";
+import { upload } from "../middleware/upload.middleware.js"; // Reuse your multer middleware
+import { apiLimiter } from "../middleware/rateLimit.middleware.js";
 
 const router = express.Router();
 
-// Limit audio uploads to 5MB to prevent RAM exhaustion
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
-});
+// Convert Text -> Audio Stream
+router.post("/tts", apiLimiter, textToSpeech);
 
-router.use(protect);
-
-router.post("/tts", textToSpeech);
-router.post("/stt", upload.single("audio"), speechToText);
+// Convert Audio File -> Text
+// uses upload.single('file') to handle the audio file upload
+router.post("/stt", apiLimiter, upload.single("file"), speechToText);
 
 export default router;
