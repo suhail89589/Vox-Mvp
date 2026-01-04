@@ -11,15 +11,13 @@ import errorHandler from "./middleware/error.middleware.js";
 import { apiLimiter } from "./middleware/rateLimit.middleware.js";
 const app = express();
 
-// ==================
-// 🔐 Security & Core Middleware
-// ==================
+
 app.use(helmet());
 app.use(hpp());
 
 app.use(
   cors({
-    origin: "*", // Hackathon-safe (lock later if needed)
+    origin: "*", 
   })
 );
 
