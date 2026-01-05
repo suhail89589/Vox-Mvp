@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { Mic, Square, Loader2 } from "lucide-react";
+import { Mic, Square, Loader2, Sparkles } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 
 const Microphone = ({ onTranscript, onRecordingStart, onRecordingStop }) => {
@@ -10,7 +11,6 @@ const Microphone = ({ onTranscript, onRecordingStart, onRecordingStop }) => {
 
   const startRecording = async () => {
     try {
-      // Notify parent to stop timers immediately
       if (onRecordingStart) onRecordingStart();
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -22,15 +22,11 @@ const Microphone = ({ onTranscript, onRecordingStart, onRecordingStop }) => {
       };
 
       mediaRecorderRef.current.onstop = async () => {
-        // Stop all tracks to release hardware
         stream.getTracks().forEach((track) => track.stop());
-
-        // Notify parent that recording stopped (but processing is starting)
         if (onRecordingStop) onRecordingStop();
 
         const audioBlob = new Blob(chunksRef.current, { type: "audio/webm" });
 
-        // Validate Audio size
         if (audioBlob.size === 0) {
           console.error("Empty audio recording");
           alert("No audio detected.");
@@ -45,7 +41,6 @@ const Microphone = ({ onTranscript, onRecordingStart, onRecordingStop }) => {
     } catch (err) {
       console.error("Microphone Access Error:", err);
       alert("Could not access microphone. Check permissions.");
-      // Ensure we reset state if permission fails
       if (onRecordingStop) onRecordingStop();
     }
   };
@@ -63,14 +58,12 @@ const Microphone = ({ onTranscript, onRecordingStart, onRecordingStop }) => {
   const handleTranscribe = async (audioBlob) => {
     setProcessing(true);
     const formData = new FormData();
-    // Security: Add file limit check here if not done in UI
     formData.append("file", audioBlob, "recording.webm");
 
     try {
       const res = await api.post("/voice/stt", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-
       if (res.data.transcript) {
         onTranscript(res.data.transcript);
       }
@@ -83,26 +76,89 @@ const Microphone = ({ onTranscript, onRecordingStart, onRecordingStop }) => {
   };
 
   return (
-    <button
-      id="mic-trigger-btn"
-      onClick={isRecording ? stopRecording : startRecording}
-      disabled={processing}
-      className={`p-4 rounded-full transition-all duration-300 shadow-lg ${
-        isRecording
-          ? "bg-red-500 hover:bg-red-600 animate-pulse ring-4 ring-red-200"
-          : "bg-indigo-600 hover:bg-indigo-700"
-      } text-white disabled:opacity-50 disabled:cursor-not-allowed`}
-      title={isRecording ? "Stop Recording" : "Start Voice Input"}
-      aria-label={isRecording ? "Stop Recording" : "Start Voice Input"}
-    >
-      {processing ? (
-        <Loader2 className="animate-spin" size={24} />
-      ) : isRecording ? (
-        <Square size={24} fill="currentColor" />
-      ) : (
-        <Mic size={24} />
+    <div className="relative flex items-center justify-center">
+      {/* 1. Animated Ripple Effect (Visible only when recording) */}
+      {isRecording && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <motion.div
+            initial={{ opacity: 0.5, scale: 1 }}
+            animate={{ opacity: 0, scale: 2 }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
+            className="absolute w-full h-full rounded-full bg-red-500/30"
+          />
+          <motion.div
+            initial={{ opacity: 0.5, scale: 1 }}
+            animate={{ opacity: 0, scale: 1.5 }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              ease: "easeOut",
+              delay: 0.5,
+            }}
+            className="absolute w-full h-full rounded-full bg-red-500/20"
+          />
+        </div>
       )}
-    </button>
+
+      {/* 2. Main Button */}
+      <motion.button
+        id="mic-trigger-btn"
+        onClick={isRecording ? stopRecording : startRecording}
+        disabled={processing}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        className={`
+          relative z-10 flex items-center justify-center w-16 h-16 rounded-full shadow-xl transition-all duration-300
+          ${
+            isRecording
+              ? "bg-red-500 text-white shadow-red-500/40"
+              : processing
+              ? "bg-indigo-400 text-white cursor-not-allowed"
+              : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/30"
+          }
+        `}
+        title={isRecording ? "Stop Recording" : "Start Voice Input"}
+        aria-label={isRecording ? "Stop Recording" : "Start Voice Input"}
+      >
+        <AnimatePresence mode="wait">
+          {processing ? (
+            <motion.div
+              key="loader"
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+            >
+              <Loader2 className="animate-spin" size={24} />
+            </motion.div>
+          ) : isRecording ? (
+            <motion.div
+              key="stop"
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+            >
+              <Square size={20} fill="currentColor" className="rounded-[2px]" />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="mic"
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+            >
+              <Mic size={24} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.button>
+
+      {/* 3. Helper Label (Optional) */}
+      {!isRecording && !processing && (
+        <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs font-medium text-slate-400 whitespace-nowrap opacity-0 hover:opacity-100 transition-opacity">
+          Tap to Speak
+        </div>
+      )}
+    </div>
   );
 };
 

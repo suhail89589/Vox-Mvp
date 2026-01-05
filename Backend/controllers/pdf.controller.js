@@ -3,22 +3,22 @@ const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse");
 import { v4 as uuidv4 } from "uuid";
 
-// In-memory session store
+
 export const sessions = new Map();
 
-// 🧹 Helper: Delete session after 1 hour to free up RAM
+
 const scheduleCleanup = (sessionId) => {
   setTimeout(() => {
     if (sessions.has(sessionId)) {
       sessions.delete(sessionId);
       console.log(`🧹 Auto-Cleanup: Removed session ${sessionId}`);
     }
-  }, 1000 * 60 * 60); // 1 Hour
+  }, 1000 * 60 * 60); 
 };
 
 export const uploadPdf = async (req, res, next) => {
   try {
-    // 1. Validate File
+   
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -33,7 +33,7 @@ export const uploadPdf = async (req, res, next) => {
       });
     }
 
-    // 2. Extract Text
+    
     const data = await pdfParse(req.file.buffer);
 
     if (!data.text || data.text.trim().length === 0) {
@@ -43,7 +43,7 @@ export const uploadPdf = async (req, res, next) => {
       });
     }
 
-    // 3. Create Session
+   
     const sessionId = uuidv4();
 
     sessions.set(sessionId, {
@@ -53,12 +53,12 @@ export const uploadPdf = async (req, res, next) => {
       uploadedAt: new Date(),
     });
 
-    // 🛡️ SECURITY FIX: Schedule cleanup
+   
     scheduleCleanup(sessionId);
 
     console.log(`✅ PDF Processed: ${sessionId} (${data.text.length} chars)`);
 
-    // 4. Respond
+   
     res.status(200).json({
       success: true,
       message: "PDF uploaded successfully",

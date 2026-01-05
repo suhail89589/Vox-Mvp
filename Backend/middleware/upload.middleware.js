@@ -3,7 +3,7 @@ import multer from "multer";
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
-  // ✅ ALLOW PDF *AND* AUDIO
+ 
   if (file.mimetype === "application/pdf" || file.mimetype.startsWith("audio/")) {
     cb(null, true);
   } else {

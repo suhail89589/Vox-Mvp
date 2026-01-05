@@ -4,7 +4,7 @@ import { apiLimiter } from "../middleware/rateLimit.middleware.js";
 
 const router = express.Router();
 
-// Protect & rate-limit AI routes
+
 router.post("/ask",  apiLimiter, askFromPdf);
 
 export default router;

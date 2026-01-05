@@ -17,12 +17,12 @@ export const generateAIResponse = async ({ question, context, language }) => {
   }
 
   try {
-    // Limit context to prevent huge bills and confusion
+   
     const safeContext = (context || "").substring(0, 3500);
 
-    // ✨ THIS IS THE SECRET SAUCE: The Persona
+    
     const systemPrompt = `
-      You are "VisionTutor", a friendly, empathetic, and highly intelligent teacher for visually impaired students.
+      You are "VoxTutor", a friendly, empathetic, and highly intelligent teacher for visually impaired students.
       
       YOUR GOAL:
       Explain the answer in the simplest way possible (Like 'Explain Like I'm 5'). 
@@ -48,8 +48,8 @@ export const generateAIResponse = async ({ question, context, language }) => {
         { role: "system", content: systemPrompt },
         { role: "user", content: question },
       ],
-      model: "llama-3.3-70b-versatile", // This is a very smart, fast model
-      temperature: 0.7, // Slightly higher creativity for better explanations
+      model: "llama-3.3-70b-versatile", 
+      temperature: 0.7,
       max_tokens: 450,
     });
 

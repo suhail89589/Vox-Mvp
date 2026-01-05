@@ -5,7 +5,7 @@ import { apiLimiter } from "../middleware/rateLimit.middleware.js";
 
 const router = express.Router();
 
-// Upload PDF & create session
+
 router.post("/upload", apiLimiter, upload.single("file"), uploadPdf);
 
 export default router;

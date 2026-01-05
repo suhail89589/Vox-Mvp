@@ -11,13 +11,16 @@ import errorHandler from "./middleware/error.middleware.js";
 import { apiLimiter } from "./middleware/rateLimit.middleware.js";
 const app = express();
 
-
 app.use(helmet());
 app.use(hpp());
 
 app.use(
   cors({
-    origin: "*", 
+    origin: [
+      "http://localhost:5173", 
+      "https://vox-mvp.vercel.app/",
+    ],
+    credentials: true, 
   })
 );
 
@@ -28,9 +31,7 @@ if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
 
-// ==================
-// ❤️ Health Check
-// ==================
+
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "OK",
@@ -39,16 +40,12 @@ app.get("/health", (req, res) => {
 });
 app.use("/api", apiLimiter);
 
-// ==================
-// 🧭 API Routes
-// ==================
+
 app.use("/api/pdf", pdfRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/voice", voiceRoutes);
 
-// ==================
-// ❌ 404 Handler
-// ==================
+
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -56,9 +53,7 @@ app.use((req, res) => {
   });
 });
 
-// ==================
-// 🛑 Global Error Handler
-// ==================
+
 app.use(errorHandler);
 
 export default app;

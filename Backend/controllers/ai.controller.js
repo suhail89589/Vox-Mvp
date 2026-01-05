@@ -1,11 +1,10 @@
 import { generateAIResponse } from "../services/ai.service.js";
-import { sessions } from "./pdf.controller.js"; // shared session store
-
+import { sessions } from "./pdf.controller.js"; 
 export const askFromPdf = async (req, res, next) => {
   try {
     const { question, sessionId, language = "en" } = req.body;
 
-    // 1. Validate input
+   
     if (!question || typeof question !== "string" || question.length > 500) {
       return res.status(400).json({
         success: false,
@@ -20,7 +19,7 @@ export const askFromPdf = async (req, res, next) => {
       });
     }
 
-    // 2. Validate session
+   
     const session = sessions.get(sessionId);
 
     if (!session) {
@@ -30,10 +29,10 @@ export const askFromPdf = async (req, res, next) => {
       });
     }
 
-    // 3. Generate answer
+   
     const answer = await generateAIResponse({
       question,
-      context: session.text.slice(0, 3000), // hard safety limit
+      context: session.text.slice(0, 3000), 
       language,
     });
 

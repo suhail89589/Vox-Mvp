@@ -1,7 +1,6 @@
 import * as voiceService from "../services/voice.service.js";
 
-// @desc    Convert Text to Speech (Streaming)
-// @route   POST /api/voice/tts
+
 export const textToSpeech = async (req, res) => {
   try {
     const { text, language } = req.body;
@@ -15,34 +14,26 @@ export const textToSpeech = async (req, res) => {
         });
     }
 
-    // Get the raw stream from Deepgram
+   
     const deepgramStream = await voiceService.textToSpeechService(
       text,
       language
     );
 
-    // Set headers for audio streaming
+    
     res.set({
       "Content-Type": "audio/wav",
       "Transfer-Encoding": "chunked",
     });
 
-    // Pipe the stream directly to the response (Memory Efficient)
-    // Deepgram SDK v3 streams are web-standard ReadableStreams.
-    // We convert web stream to node stream if necessary, or iterate.
-
-    // Node.js < 18 compat (if needed):
-    // const nodeStream = Readable.fromWeb(deepgramStream);
-    // nodeStream.pipe(res);
-
-    // Modern Node.js (18+):
+    
     for await (const chunk of deepgramStream) {
       res.write(chunk);
     }
     res.end();
   } catch (error) {
     console.error("TTS Controller Error:", error);
-    // Only send JSON if headers haven't been sent yet
+    
     if (!res.headersSent) {
       res
         .status(500)
@@ -53,8 +44,7 @@ export const textToSpeech = async (req, res) => {
   }
 };
 
-// @desc    Convert Speech to Text
-// @route   POST /api/voice/stt
+
 export const speechToText = async (req, res) => {
   try {
     if (!req.file) {

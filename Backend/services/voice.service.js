@@ -4,7 +4,7 @@ dotenv.config();
 
 let deepgram = null;
 
-// 🛡️ SECURITY FIX: Check API Key without killing the server
+
 if (!process.env.DEEPGRAM_API_KEY) {
   console.warn("⚠️  WARNING: DEEPGRAM_API_KEY is missing in .env file.");
   console.warn(
@@ -19,7 +19,7 @@ if (!process.env.DEEPGRAM_API_KEY) {
   }
 }
 
-// Helper: Wait for X milliseconds (Used for retries)
+
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const textToSpeechService = async (text, retries = 3) => {
@@ -27,7 +27,7 @@ export const textToSpeechService = async (text, retries = 3) => {
     throw new Error("Voice service unavailable: DEEPGRAM_API_KEY missing");
   }
 
-  // 🔄 RETRY LOGIC: Try 3 times before failing
+
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const response = await deepgram.speak.request(
@@ -42,19 +42,19 @@ export const textToSpeechService = async (text, retries = 3) => {
       const stream = await response.getStream();
       if (!stream) throw new Error("Deepgram returned empty stream");
 
-      return stream; // Success! Return the stream.
+      return stream; 
     } catch (err) {
       console.warn(`⚠️ TTS Attempt ${attempt} failed: ${err.message}`);
 
       if (attempt === retries) {
-        // If this was the last attempt, throw the error for real
+       
         console.error("❌ All TTS attempts failed.");
         throw new Error(
           "Failed to generate voice audio after multiple attempts."
         );
       }
 
-      // Wait 1s, then 2s, then 3s...
+      
       await wait(1000 * attempt);
     }
   }

@@ -1,15 +1,24 @@
 import { useState, useRef, useEffect } from "react";
 import api from "../services/api";
-import { Volume2, Pause, Play, Mic, Loader2, Radio } from "lucide-react";
+import {
+  Volume2,
+  Pause,
+  Play,
+  Mic,
+  Loader2,
+  Radio,
+  Send,
+  BookOpen,
+} from "lucide-react";
 import Microphone from "./Microphone";
+import { motion, AnimatePresence } from "framer-motion";
 
 const Reader = ({ sessionId }) => {
+  // --- STATE LOGIC (KEPT 1:1) ---
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [paragraphs, setParagraphs] = useState([]);
   const [currentParaIndex, setCurrentParaIndex] = useState(-1);
-
-  // Status: 'idle', 'thinking', 'playing', 'paused', 'waiting', 'listening'
   const [status, setStatus] = useState("idle");
   const [countdown, setCountdown] = useState(0);
 
@@ -17,31 +26,24 @@ const Reader = ({ sessionId }) => {
   const timerRef = useRef(null);
   const activeRequestId = useRef(0);
 
-  // 1. Auto-Start
   useEffect(() => {
     if (sessionId) askAI("Summarize this document simply.");
     return () => stopEverything();
   }, [sessionId]);
 
-  // 2. ⌨️ KEYBOARD SHORTCUTS
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")
         return;
-
-      // SPACEBAR = Click Microphone
       if (e.code === "Space") {
         e.preventDefault();
         document.getElementById("mic-trigger-btn")?.click();
       }
-
-      // P = Play / Pause
       if (e.code === "KeyP") {
         const playButton = document.getElementById("play-pause-btn");
         if (playButton) playButton.click();
       }
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
@@ -49,7 +51,7 @@ const Reader = ({ sessionId }) => {
   const stopEverything = () => {
     if (audioRef.current) {
       audioRef.current.pause();
-      audioRef.current = null; // Clean reference
+      audioRef.current = null;
     }
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -58,28 +60,18 @@ const Reader = ({ sessionId }) => {
     setStatus("idle");
   };
 
-  // --- CRITICAL FIX: Handlers for Microphone Sync ---
   const handleRecordingStart = () => {
-    // Immediately kill the doubt timer so we don't skip ahead
     if (timerRef.current) clearInterval(timerRef.current);
-
-    // Pause any background reading
     if (audioRef.current) audioRef.current.pause();
-
     setStatus("listening");
   };
 
-  const handleRecordingStop = () => {
-    // Give immediate feedback that we are processing
-    setStatus("thinking");
-  };
-  // --------------------------------------------------
+  const handleRecordingStop = () => setStatus("thinking");
 
   const askAI = async (text) => {
     const reqId = activeRequestId.current + 1;
     activeRequestId.current = reqId;
-
-    stopEverything(); // Clear previous state
+    stopEverything();
     setStatus("thinking");
     setAnswer("Thinking...");
 
@@ -90,12 +82,10 @@ const Reader = ({ sessionId }) => {
         language: "en",
       });
       if (activeRequestId.current !== reqId) return;
-
       const fullText = res.data.data.answer;
       setAnswer(fullText);
       const paraList = fullText.split(/\n+/).filter((p) => p.trim().length > 0);
       setParagraphs(paraList);
-
       playParagraph(0, paraList, reqId);
     } catch (err) {
       console.error(err);
@@ -106,16 +96,12 @@ const Reader = ({ sessionId }) => {
 
   const playParagraph = async (index, allParas, reqId) => {
     if (activeRequestId.current !== reqId) return;
-
-    // Safety check: if index is out of bounds, stop.
     if (!allParas || index >= allParas.length) {
       setStatus("idle");
       return;
     }
-
     setCurrentParaIndex(index);
     setStatus("playing");
-
     try {
       const response = await api.post(
         "/voice/tts",
@@ -123,49 +109,33 @@ const Reader = ({ sessionId }) => {
         { responseType: "blob" }
       );
       if (activeRequestId.current !== reqId) return;
-
       const audioUrl = URL.createObjectURL(response.data);
-
-      // Stop previous audio if somehow still playing
       if (audioRef.current) audioRef.current.pause();
-
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
-
       audio.play().catch((e) => {
-        console.warn("Autoplay blocked or failed:", e);
+        console.warn("Autoplay blocked:", e);
         setStatus("paused");
       });
-
       audio.onended = () => startDoubtWindow(index, allParas, reqId);
     } catch (err) {
-      console.error("TTS Error:", err);
-      // If TTS fails, wait a moment then try next paragraph or stop
       startDoubtWindow(index, allParas, reqId);
     }
   };
 
   const startDoubtWindow = (index, allParas, reqId) => {
     if (activeRequestId.current !== reqId) return;
-
     setStatus("waiting");
     setCountdown(5);
-
     let timeLeft = 5;
-
-    // Clear any existing timer before starting a new one
     if (timerRef.current) clearInterval(timerRef.current);
-
     timerRef.current = setInterval(() => {
-      // Double check reqId inside interval
       if (activeRequestId.current !== reqId) {
         clearInterval(timerRef.current);
         return;
       }
-
       timeLeft -= 1;
       setCountdown(timeLeft);
-
       if (timeLeft <= 0) {
         clearInterval(timerRef.current);
         playParagraph(index + 1, allParas, reqId);
@@ -175,7 +145,6 @@ const Reader = ({ sessionId }) => {
 
   const handleUserVoice = (text) => {
     if (!text) {
-      // If transcript failed/empty, resume or go idle
       setStatus("idle");
       return;
     }
@@ -200,112 +169,127 @@ const Reader = ({ sessionId }) => {
     setStatus("paused");
   };
 
+  // --- UI HELPERS ---
+  const getStatusColor = () => {
+    switch (status) {
+      case "listening":
+        return "bg-red-500 shadow-red-500/50";
+      case "playing":
+        return "bg-green-500 shadow-green-500/50";
+      case "thinking":
+        return "bg-blue-500 shadow-blue-500/50";
+      case "waiting":
+        return "bg-amber-500 shadow-amber-500/50";
+      default:
+        return "bg-slate-500";
+    }
+  };
+
   return (
-    <main className="max-w-3xl mx-auto mt-8 p-4 space-y-6" aria-live="polite">
-      {/* 🟢 STATUS BAR */}
-      <section
-        className={`text-white p-6 rounded-2xl flex items-center justify-between shadow-xl transition-colors duration-500 ${
-          status === "listening"
-            ? "bg-red-900 border-2 border-red-500"
-            : "bg-slate-900"
-        }`}
-        aria-label="Audio Controls and Status"
-      >
-        <div className="flex items-center gap-4">
-          {status === "thinking" && (
-            <Loader2 className="animate-spin" size={32} />
-          )}
-          {status === "playing" && (
-            <Volume2 className="animate-pulse text-green-400" size={32} />
-          )}
-          {status === "waiting" && (
-            <Mic className="animate-bounce text-yellow-400" size={32} />
-          )}
-          {status === "listening" && (
-            <Radio className="animate-pulse text-red-500" size={32} />
-          )}
-
-          <div>
-            <h2 className="text-xl font-bold">
-              {status === "thinking" && "AI is Thinking..."}
-              {status === "playing" && "Reading Aloud..."}
-              {status === "waiting" &&
-                `Speak now if you have doubts (${countdown}s)`}
-              {status === "listening" && "Listening... (Press Space to Stop)"}
-              {status === "idle" && "Ready. Tap Mic or Press Space."}
-              {status === "paused" && "Paused. Press P to Resume."}
-            </h2>
-          </div>
-        </div>
-
-        {/* CONTROLS */}
-        <div className="flex gap-4">
-          {status === "playing" ? (
-            <button
-              id="play-pause-btn"
-              onClick={handlePause}
-              className="bg-slate-700 hover:bg-slate-600 p-4 rounded-full transition-all"
-              aria-label="Pause Reading (Press P)"
-            >
-              <Pause size={28} />
-            </button>
-          ) : (
-            (status === "paused" || status === "idle") && (
-              <button
-                id="play-pause-btn"
-                onClick={handleResume}
-                className="bg-green-600 hover:bg-green-700 p-4 rounded-full transition-all"
-                aria-label="Resume Reading (Press P)"
-              >
-                <Play size={28} />
-              </button>
-            )
-          )}
-
-          {/* CRITICAL FIX: Passing handlers to Microphone */}
-          <Microphone
-            onTranscript={handleUserVoice}
-            onRecordingStart={handleRecordingStart}
-            onRecordingStop={handleRecordingStop}
+    <main className="max-w-4xl mx-auto space-y-8 relative" aria-live="polite">
+      {/* 1. Dynamic Status Header */}
+      <motion.div layout className="sticky top-24 z-30 mx-auto w-fit">
+        <div
+          className={`
+          flex items-center gap-4 px-6 py-3 rounded-full 
+          bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl
+          border border-slate-200 dark:border-slate-700 shadow-2xl
+        `}
+        >
+          <div
+            className={`w-3 h-3 rounded-full animate-pulse ${getStatusColor()}`}
           />
+          <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">
+            {status === "thinking" && "Processing Answer..."}
+            {status === "playing" && "Reading Aloud"}
+            {status === "waiting" && `Any doubts? Continuing in ${countdown}s`}
+            {status === "listening" && "Listening..."}
+            {status === "idle" && "Ready for questions"}
+            {status === "paused" && "Paused"}
+          </span>
         </div>
-      </section>
+      </motion.div>
 
-      {/* TEXT DISPLAY */}
-      <article className="bg-white p-8 rounded-2xl border-2 border-slate-200 shadow-sm">
+      {/* 2. Content Area */}
+      <article className="min-h-[50vh] bg-white dark:bg-slate-900 rounded-3xl p-8 lg:p-12 shadow-sm border border-slate-100 dark:border-slate-800">
         {paragraphs.length > 0 ? (
           paragraphs.map((para, idx) => (
-            <p
+            <motion.p
               key={idx}
-              className={`text-xl leading-loose mb-6 transition-all duration-300 p-4 rounded-xl ${
-                idx === currentParaIndex
-                  ? "bg-yellow-100 text-black border-l-8 border-yellow-500 font-semibold shadow-inner"
-                  : "text-slate-700 opacity-50"
-              }`}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{
+                opacity: idx === currentParaIndex ? 1 : 0.4,
+                scale: idx === currentParaIndex ? 1.02 : 1,
+                y: 0,
+              }}
+              transition={{ duration: 0.5 }}
+              className={`
+                text-xl lg:text-2xl leading-loose mb-8 p-6 rounded-2xl transition-colors duration-500
+                ${
+                  idx === currentParaIndex
+                    ? "bg-indigo-50 dark:bg-indigo-900/20 text-slate-900 dark:text-slate-100 font-medium shadow-sm border-l-4 border-indigo-500"
+                    : "text-slate-600 dark:text-slate-500"
+                }
+              `}
               tabIndex={0}
             >
               {para}
-            </p>
+            </motion.p>
           ))
         ) : (
-          <p className="text-xl text-slate-500 italic">
-            {answer || "Waiting for content..."}
-          </p>
+          <div className="flex flex-col items-center justify-center h-64 text-slate-400">
+            <BookOpen size={48} className="mb-4 opacity-50" />
+            <p className="text-xl font-medium">
+              {answer || "Waiting for content..."}
+            </p>
+          </div>
         )}
       </article>
 
-      <label className="sr-only" htmlFor="text-input">
-        Type a question
-      </label>
-      <input
-        id="text-input"
-        className="w-full p-4 border-2 border-slate-300 rounded-xl text-lg focus:border-blue-600 outline-none transition-all"
-        value={question}
-        onChange={(e) => setQuestion(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && askAI(question)}
-        placeholder="Type here if you prefer not to speak..."
-        disabled={status === "listening" || status === "thinking"}
-      />
+      {/* 3. Floating Action Bar */}
+      <div className="fixed bottom-8 left-0 right-0 px-4 flex justify-center z-40 pointer-events-none">
+        <div className="bg-white/90 dark:bg-slate-950/90 backdrop-blur-lg border border-slate-200 dark:border-slate-800 p-2 rounded-2xl shadow-2xl flex items-center gap-2 pointer-events-auto max-w-2xl w-full">
+          {/* Play/Pause */}
+          <button
+            id="play-pause-btn"
+            onClick={status === "playing" ? handlePause : handleResume}
+            className="w-14 h-14 flex-shrink-0 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+          >
+            {status === "playing" ? (
+              <Pause size={24} />
+            ) : (
+              <Play size={24} className="ml-1" />
+            )}
+          </button>
+
+          {/* Text Input */}
+          <div className="flex-1 relative">
+            <input
+              className="w-full h-14 pl-4 pr-12 bg-transparent text-slate-900 dark:text-white placeholder:text-slate-400 outline-none font-medium"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && askAI(question)}
+              placeholder="Ask a question..."
+              disabled={status === "listening" || status === "thinking"}
+            />
+            <button
+              onClick={() => askAI(question)}
+              className="absolute right-2 top-2 bottom-2 aspect-square flex items-center justify-center text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+            >
+              <Send size={20} />
+            </button>
+          </div>
+
+          {/* Mic */}
+          <div className="border-l border-slate-200 dark:border-slate-800 pl-2">
+            <Microphone
+              onTranscript={handleUserVoice}
+              onRecordingStart={handleRecordingStart}
+              onRecordingStop={handleRecordingStop}
+            />
+          </div>
+        </div>
+      </div>
     </main>
   );
 };
