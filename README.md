@@ -1,7 +1,6 @@
-# GFGBQ-Team-losers
-Repository for losers - Vibe Coding Hackathon
+Vox-Tutor
 
-VisionTutor is an AI-powered, voice-first learning platform designed to make PDF-based educational content accessible to visually impaired students.
+VoxTutor is an AI-powered, voice-first learning platform designed to make PDF-based educational content accessible to visually impaired students.
 The platform allows users to upload any PDF (textbook, notes, study material) and interact with it through natural language questions and voice responses, without requiring login or complex navigation.
 
 This project was built as a session-based, single-page experience optimized for accessibility, speed, and simplicity — ideal for learners who rely on audio interaction.
@@ -15,7 +14,7 @@ No easy way to ask questions about study material
 VisionTutor solves this by turning any PDF into a conversational, voice-enabled tutor.
 
 💡 Solution
-VisionTutor enables users to:
+VoxTutor enables users to:
 Upload a PDF
 Automatically extract and segment text
 Ask questions about the content
@@ -79,35 +78,21 @@ Designed specifically with visually impaired users in mind
 🚀 Key Features
 
 📄 Upload any PDF
-
 🧠 Ask questions about the content
-
 🔊 Voice-based AI answers
-
 ⏱️ Auto-expiring sessions (privacy-friendly)
-
 ⚡ Fast response times
-
 🔐 No authentication required
-
 🔒 Privacy & Security
-
 No user accounts
-
 No data persistence
-
 PDFs and sessions auto-delete after 5 minutes
-
 Rate-limited API endpoints
-
-🧪 Hackathon Scope & Constraints
 
 This MVP focuses on:
 
 Core accessibility
-
 End-to-end functionality
-
 Simplicity over scale
 
 Future enhancements could include:
